@@ -1,23 +1,12 @@
-# Lora and Montserrat are under the Open Fonts License
-# https://fonts.google.com/specimen/Lora#standard-styles
-# https://fonts.google.com/specimen/Montserrat
-
 import std / [os, random, strformat, oids]
 import pkg / pixie
 
-
 randomize()
-
-const
-  QUOTE_WIDTH = 1000
-  QUOTE_HEIGHT = 1000
-
 
 type QuoteConfig* = ref object
   fonts, strokeFonts: seq[Font]
   markinimFont: Font
-  markinimImage: Image
-
+  markinimImages: seq[Image] # Список изображений
 
 proc getQuoteConfig*(): QuoteConfig =
   var
@@ -31,48 +20,50 @@ proc getQuoteConfig*(): QuoteConfig =
       readFont(thisDir / "Oswald-SemiBold.ttf"),
     ]
     markinimFont = readFont(thisDir / "Montserrat-ExtraBold.ttf")
-    markinimImage = readImage(thisDir / "markinim.jpg")
+    # Добавление всех изображений в список
+    markinimImages = @[
+      readImage(thisDir / "markinim.jpg"),
+      readImage(thisDir / "600.png"),
+      readImage(thisDir / "500.png"),
+      readImage(thisDir / "400.png"),
+      readImage(thisDir / "300.png"),
+      readImage(thisDir / "200.png"),
+      readImage(thisDir / "20.png")
+    ]
 
   for font in fonts:
-    font.size = min(QUOTE_WIDTH, QUOTE_HEIGHT) / 13
+    font.size = 100  # Устанавливаем базовый размер шрифта
 
   for i in 0 ..< strokeFonts.len:
-    strokeFonts[i].paint.color = color(1, 1, 1, 1)
+    strokeFonts[i].paint.color = color(1, 1, 1, 1) # Белый цвет для обводки
     strokeFonts[i].size = fonts[i].size
 
-  markinimFont.size = min(QUOTE_WIDTH, QUOTE_HEIGHT) / 25
+  markinimFont.size = 50  # Базовый размер для дополнительного шрифта
 
   new result
   result.fonts = fonts
   result.strokeFonts = strokeFonts
   result.markinimFont = markinimFont
-  result.markinimImage = markinimImage
-
+  result.markinimImages = markinimImages
 
 proc genQuote*(text: string, config: QuoteConfig): string {.gcsafe.} =
+  # Случайный выбор изображения
+  let markinimImage = config.markinimImages[rand(0 ..< config.markinimImages.len)]
   let
-    blackWhite = rand(0 .. 1) == 1
-    image = newImage(QUOTE_WIDTH, QUOTE_HEIGHT)
-    finalpic = newImage(QUOTE_WIDTH, QUOTE_HEIGHT)
-    paint = newPaint(LinearGradientPaint)
+    imageWidth = markinimImage.width
+    imageHeight = markinimImage.height
+    image = newImage(imageWidth, imageHeight)
+    finalpic = newImage(imageWidth, imageHeight)
     randIdx = rand(0 ..< config.fonts.len)
     font = config.fonts[randIdx]
     strokeFont = config.strokeFonts[randIdx]
 
-  # markinimFont.paint.color = if blackWhite: color(1, 192 / 255, 203 / 255, 1) else: color(0, 0, 0, 1)
+  # Настройка размеров шрифта в зависимости от размера изображения
+  font.size = imageWidth / 13
+  strokeFont.size = font.size
+  config.markinimFont.size = imageWidth / 25
 
-  paint.blendMode = OverlayBlend
-  paint.gradientHandlePositions = @[
-    vec2(0, 0),
-    vec2(float(image.width), float(image.height)),
-  ]
-  paint.gradientStops = @[
-    ColorStop(color: color(rand(0.2 .. 1.0), rand(0.2 .. 1.0), rand(0.2 .. 1.0), if blackWhite: 0.5 else: 1), position: 0),
-    ColorStop(color: color(rand(0.2 .. 1.0), rand(0.2 .. 1.0), rand(0.2 .. 1.0), if blackWhite: 0.5 else: 1), position: 1),
-  ]
-
-  image.fillGradient(paint)
-
+  # Рисуем текст с обводкой
   let strokeArrangement = strokeFont.typeset(text,
     bounds = vec2(image.width.float * 0.9, image.height.float * 0.9),
     hAlign = CenterAlign, vAlign = MiddleAlign
@@ -84,6 +75,7 @@ proc genQuote*(text: string, config: QuoteConfig): string {.gcsafe.} =
     strokeWidth = font.size / 10,
   )
 
+  # Рисуем основной текст
   let arrangement = font.typeset(text,
     bounds = vec2(image.width.float * 0.9, image.height.float * 0.9),
     hAlign = CenterAlign, vAlign = MiddleAlign
@@ -94,21 +86,17 @@ proc genQuote*(text: string, config: QuoteConfig): string {.gcsafe.} =
     translate(vec2(image.width.float / 20, image.width.float / 20)),
   )
 
-  # Watermark
-  image.fillText(config.markinimFont, "@MarkinimBot",
-    transform = translate(vec2(image.width / 2, image.height.float - config.markinimFont.size * 1.5)),
-    hAlign = CenterAlign,
-  )
-
-  finalpic.draw(config.markinimImage)
+  # Объединяем изображения и текст
+  finalpic.draw(markinimImage)
   finalpic.draw(image)
+  
   let finalFile = getTempDir() / &"markinim_quote_{genOid()}.png"
   finalpic.writeFile(finalFile)
   return finalFile
 
-
 when isMainModule:
-  let im = genQuote("Markinim quotes update", fonts, strokeFonts, markinimFont, markinimImage)
+  let config = getQuoteConfig()
+  let im = genQuote("Markinim quotes update", config)
   echo im
   copyFile(im, "test.png")
   discard tryRemoveFile(im)
