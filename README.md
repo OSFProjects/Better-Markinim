@@ -1,16 +1,17 @@
+
 # Markinim
-This is the @MarkinimBot Telegram bot's source code. It's a bit messy (it was never meant to be open source at the beginning) so it needs a cleanup, but it works. Memory usage and performance are pretty good. It uses sqlite.
+Это исходный код Telegram-бота @BetterMarkinimBot. Код немного запутан (изначально не планировался для открытого доступа), поэтому требует очистки, но он работает. Использование памяти и производительность достаточно хороши. Использует SQLite.
 
-# Deploy
-> For docker instructions, [skip here](#deploy-with-docker)
+# Развертывание
+> Инструкции по использованию Docker [находятся здесь](#deploy-with-docker).
 
-Install required dependencies:
+Установите необходимые зависимости:
 
 ```shell
 $ nimble install
 ```
 
-Then create a `secret.ini` file which looks like this, where admin is your Telegram user id, and token is the bot token obtainable from @BotFather.
+Затем создайте файл `secret.ini`, который должен выглядеть следующим образом, где `admin` — ваш Telegram user id, а `token` — токен бота, который можно получить у @BotFather.
 
 ```ini
 [config]
@@ -19,32 +20,42 @@ admin = 123456
 logging = 1
 ```
 
-You can also add a `keeplast = 1500` parameter to the configuration, to avoid ram overloads by processing a maximum of keeplast messages per session (default: `1500`)
+Вы также можете добавить параметр `keeplast = 1500` в конфигурацию, чтобы избежать перегрузки оперативной памяти, обрабатывая максимум `keeplast` сообщений за сессию (по умолчанию: `1500`).
 
 ```shell
 $ nim c -o:markinim src/markinim.nim
 $ ./markinim
 ```
-## Deploy (with docker)
-- Copy `.env.sample` to `.env`
-- Edit `BOT_TOKEN` and `ADMIN_ID`
-- If needed, edit `KEEP_LAST` (default: `1500`. Read above)
-- Build and run the image with `docker compose up -d --build`
-- Run the bot with `docker compose up -d`
 
-### Old instructions
-> ⚠️ **WARNING**: deprecated. Use the docker compose instructions above instead.
-- Build the image with `docker build -t markinim .`
-- Run the bot using `docker run -itd -v="${pwd}/data":/code/data:z --env-file=.env --restart=unless-stopped --name=markinimbot markinim`
+## Развертывание (с Docker)
+- Скопируйте `.env.sample` в `.env`.
+- Измените значения `BOT_TOKEN` и `ADMIN_ID`.
+- При необходимости измените `KEEP_LAST` (по умолчанию: `1500`. Подробнее выше).
+- Соберите и запустите образ с помощью команды `docker compose up -d --build`.
+- Запустите бота с помощью команды `docker compose up -d`.
 
-## Backups
-> ⚠️ **WARNING**: This is an experimental backup script. It's not well-tested yet. Use it at your own risk. I am not responsible for any data loss. I don't know if it works.
-- Setup [`syncthing`](https://syncthing.net/) if you want to sync the backups to another device
-- Copy `tools/backup_script.example.sh` to `tools/backup_script.sh` and edit it to set the correct values for `root_dir`, `backup_directory` and `backup_filename`
-- Optionally, edit `TELEGRAM_ID` to receive a notification when the backup is done
-- Copy `tools/backup.example.sh` to `tools/backup.sh` and edit it if you want to change the container name
-- Run a cronjob to run `tools/backup.sh` every 4h (or whatever you want)
-  - Open crontab with `crontab -e`
-  - Add `0 */4 * * * /path/to/markinim/tools/backup.sh`
-  - Save and exit
-- Done! Now you should have a backup every 4h in the specified directory
+### Старые инструкции
+> ⚠️ **ВНИМАНИЕ**: устарело. Используйте инструкции по docker compose, указанные выше.
+- Соберите образ с помощью команды `docker build -t markinim .`.
+- Запустите бота с помощью команды:
+
+```shell
+docker run -itd -v="${pwd}/data":/code/data:z --env-file=.env --restart=unless-stopped --name=markinimbot markinim
+```
+
+## Резервные копии
+> ⚠️ **ВНИМАНИЕ**: это экспериментальный скрипт для создания резервных копий. Он недостаточно протестирован. Используйте на свой страх и риск. Я не несу ответственности за потерю данных. Не уверен, что он работает.
+- Установите [`syncthing`](https://syncthing.net/), если хотите синхронизировать резервные копии с другим устройством.
+- Скопируйте `tools/backup_script.example.sh` в `tools/backup_script.sh` и отредактируйте его, указав правильные значения для `root_dir`, `backup_directory` и `backup_filename`.
+- При желании измените значение `TELEGRAM_ID`, чтобы получать уведомления, когда резервное копирование завершено.
+- Скопируйте `tools/backup.example.sh` в `tools/backup.sh` и отредактируйте его, если хотите изменить имя контейнера.
+- Настройте cron-задачу для запуска `tools/backup.sh` каждые 4 часа (или в любой другой желаемый интервал).
+  - Откройте crontab с помощью `crontab -e`.
+  - Добавьте строку:
+
+  ```shell
+  0 */4 * * * /path/to/markinim/tools/backup.sh
+  ```
+
+  - Сохраните и выйдите.
+- Готово! Теперь резервная копия будет создаваться каждые 4 часа в указанной директории. По поводу вопросов, пишите в тг - @Sayque
