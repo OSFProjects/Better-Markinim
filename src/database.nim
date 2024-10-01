@@ -70,7 +70,7 @@ proc initDatabase*(name: string = "markov.db"): DbConn =
   result.inTransaction"ALTER TABLE chats ADD markovDisabled INTEGER NOT NULL DEFAULT 0"
   result.inTransaction"ALTER TABLE chats ADD quotesDisabled INTEGER NOT NULL DEFAULT 0"
   result.inTransaction"ALTER TABLE chats ADD pollsDisabled INTEGER NOT NULL DEFAULT 1"
-  result.inTransaction"ALTER TABLE users ADD consented INTEGER NOT NULL DEFAULT 1"
+  result.inTransaction"ALTER TABLE users ADD consented INTEGER NOT NULL DEFAULT 0"
   result.inTransaction"ALTER TABLE sessions ADD learningPaused INTEGER NOT NULL DEFAULT 0"
 
 proc getUser*(conn: DbConn, userId: int64): User {.gcsafe.} =
