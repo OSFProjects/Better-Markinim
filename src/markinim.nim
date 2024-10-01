@@ -1,12 +1,12 @@
 import std/[asyncdispatch, logging, options, os, times, strutils, strformat, tables, random, sets, parsecfg, sequtils, streams, sugar, re, algorithm]
-from std / unicode import runeOffset
-import pkg / norm / [model, sqlite]
-import pkg / [telebot, owoifynim, emojipasta]
-import pkg / nimkov / [generator, objects, typedefs, constants]
+from std/unicode import runeOffset
+import pkg/norm/[model, sqlite]
+import pkg/[telebot, owoifynim, emojipasta]
+import pkg/nimkov/[generator, objects, typedefs, constants]
 
 import database
-import utils / [unixtime, timeout, listen, as_emoji, get_owoify_level, human_bytes, random_emoji]
-import quotes / quote
+import utils/[unixtime, timeout, listen, as_emoji, get_owoify_level, human_bytes, random_emoji]
+import quotes/quote
 
 var L = newConsoleLogger(fmtStr="$levelname | [$time] ", levelThreshold = Level.lvlAll)
 
@@ -20,7 +20,6 @@ var
   antiFlood {.threadvar.}: Table[int64, seq[int64]]
   keepLast: int = 1500
   quoteConfig {.threadvar.}: QuoteConfig
-
 let uptime = epochTime()
 
 const
@@ -30,18 +29,17 @@ const
   ANTIFLOOD_SECONDS = 10
   ANTIFLOOD_RATE = 6
 
-  MARKOV_SAMPLES_CACHE_TIMEOUT = 60 * 30 # 30 minutes
-  GROUP_ADMINS_CACHE_TIMEOUT = 60 * 5 # result is valid for five minutes
-  MARKOV_CHAT_SESSIONS_TIMEOUT = 60 * 30 # 30 minutes
+  MARKOV_SAMPLES_CACHE_TIMEOUT = 60 * 30 # 30 минут
+  GROUP_ADMINS_CACHE_TIMEOUT = 60 * 5 # результат действителен в течение пяти минут
+  MARKOV_CHAT_SESSIONS_TIMEOUT = 60 * 30 # 30 минут
 
   MAX_SESSIONS = 20
   MAX_FREE_SESSIONS = 5
   MAX_SESSION_NAME_LENGTH = 16
 
-  UNALLOWED = "You are not allowed to perform this command"
-  CREATOR_STRING = " Please contact my creator if you think this is a mistake (more information on @Markinim)"
-  SETTINGS_TEXT = "Tap on a button to toggle an option. Use /percentage to change the ratio of answers from the bot. Use /sessions to manage the sessions."
-  CONSENT_TEXT = "Markinim is an opt-in service. With the options below, you can manage your data settings. For more information, see /privacy."
+  UNALLOWED = "Вам не разрешено выполнять эту команду"
+  CREATOR_STRING = " Пожалуйста, свяжитесь с моим создателем, если вы думаете, что это ошибка (подробности в @Markinim)"
+  SETTINGS_TEXT = "Нажмите на кнопку, чтобы переключить опцию. Используйте /percentage, чтобы изменить соотношение ответов от бота. Используйте /sessions, чтобы управлять сессиями."
   HELP_TEXT = staticRead(root / "help.md")
   PRIVACY_TEXT = staticRead(root / "privacy.md")
 
@@ -91,12 +89,12 @@ proc isMessageOk(session: Session, text: string): bool =
 proc isFlood(chatId: int64, rate: int = ANTIFLOOD_RATE, seconds: int = ANTIFLOOD_SECONDS): bool =
   let time = unixTime()
   if chatId notin antiFlood:
-    antiflood[chatId] = @[time]
+    antiFlood[chatId] = @[time]
   else:
     antiFlood[chatId].add(time)
 
-  antiflood[chatId] = antiflood[chatId].filterIt(time - it < seconds)
-  return len(antiflood[chatId]) > rate
+  antiFlood[chatId] = antiFlood[chatId].filterIt(time - it < seconds)
+  return len(antiFlood[chatId]) > rate
 
 proc getCachedSession*(conn: DbConn, chatId: int64): database.Session {.gcsafe.} =
   if chatId in chatSessions:
@@ -118,11 +116,11 @@ proc cleanerWorker {.async.} =
       antiFloodKeys = antiFlood.keys.toSeq()
 
     for chatId in antiFloodKeys:
-      let messages = antiflood[chatId].filterIt(time - it < ANTIFLOOD_SECONDS)
+      let messages = antiFlood[chatId].filterIt(time - it < ANTIFLOOD_SECONDS)
       if len(messages) != 0:
-        antiFlood[chatId] = antiflood[chatId].filterIt(time - it < ANTIFLOOD_SECONDS)
+        antiFlood[chatId] = antiFlood[chatId].filterIt(time - it < ANTIFLOOD_SECONDS)
       else:
-        antiflood.del(chatId)
+        antiFlood.del(chatId)
     
     let adminsCacheKeys = adminsCache.keys.toSeq()
     for record in adminsCacheKeys:
@@ -161,7 +159,7 @@ proc isAdminInGroup(bot: Telebot, chatId: int64, userId: int64): Future[bool] {.
 
 type KeyboardInterrupt = ref object of CatchableError
 proc handler() {.noconv.} =
-  raise KeyboardInterrupt(msg: "Keyboard Interrupt")
+  raise KeyboardInterrupt(msg: "Клавиатурное прерывание")
 setControlCHook(handler)
 
 
@@ -173,11 +171,6 @@ proc trimUnicode(s: string, length: int): string =
   return s[0 ..< offset]
 proc sortCandidates(options: seq[string], length: int): seq[string] =
   var options = options
-  # let
-  #   lengths = options.mapIt(it.len)
-  #   minLength = min(lengths)
-  #   maxLength = max(lengths)
-
   options.sort(byLength)
   options.reverse()
 
@@ -192,17 +185,16 @@ proc showSessions(bot: Telebot, chatId, messageId: int64, sessions: seq[Session]
   var sessions = sessions
   if sessions.len == 0:
     sessions = conn.getSessions(chatId = chatId)
-  # if checkDefault:
   let defaultSession = conn.getDefaultSession(chatId)
 
   discard await bot.editMessageText(chatId = $chatId,
     messageId = int(messageId),
-    text = "*Current sessions in this chat.* Send /delete to delete the current one.",
+    text = "*Текущие сессии в этом чате.* Отправьте /delete, чтобы удалить текущую.",
     replyMarkup = newInlineKeyboardMarkup(
       sessions.mapIt(
         @[InlineKeyboardButton(text: (if it.isDefault or it.uuid == defaultSession.uuid: &"🎩 {it.name}" else: it.name) & &" - {conn.getMessagesCount(it)}",
             callbackData: some &"set_{chatId}_{it.uuid}")]
-      ) & @[InlineKeyboardButton(text: "Add session", callbackData: some &"addsession_{chatId}")]
+      ) & @[InlineKeyboardButton(text: "Добавить сессию", callbackData: some &"addsession_{chatId}")]
     ),
     parseMode = "markdown",
   )
@@ -211,37 +203,37 @@ proc getSettingsKeyboard(session: Session): InlineKeyboardMarkup =
   let chatId = session.chat.chatId
   return newInlineKeyboardMarkup(
     @[
-      InlineKeyboardButton(text: &"Usernames {asEmoji(not session.chat.blockUsernames)}", callbackData: some &"usernames_{chatId}"),
-      InlineKeyboardButton(text: &"Links {asEmoji(not session.chat.blockLinks)}", callbackData: some &"links_{chatId}"),
+      InlineKeyboardButton(text: &"Пользовательские имена {asEmoji(not session.chat.blockUsernames)}", callbackData: some &"usernames_{chatId}"),
+      InlineKeyboardButton(text: &"Ссылки {asEmoji(not session.chat.blockLinks)}", callbackData: some &"links_{chatId}"),
     ],
     @[
-      InlineKeyboardButton(text: &"Keep SFW {asEmoji(session.chat.keepSfw)}", callbackData: some &"sfw_{chatId}")
+      InlineKeyboardButton(text: &"Сохранить SFW {asEmoji(session.chat.keepSfw)}", callbackData: some &"sfw_{chatId}")
     ],
     @[
-      InlineKeyboardButton(text: &"Disable /markov {asEmoji(session.chat.markovDisabled)}", callbackData: some &"markov_{chatId}"),
-      InlineKeyboardButton(text: &"Disable quotes {asEmoji(session.chat.quotesDisabled)}", callbackData: some &"quotes_{chatId}"),
+      InlineKeyboardButton(text: &"Отключить /markov {asEmoji(session.chat.markovDisabled)}", callbackData: some &"markov_{chatId}"),
+      InlineKeyboardButton(text: &"Отключить цитаты {asEmoji(session.chat.quotesDisabled)}", callbackData: some &"quotes_{chatId}"),
     ],
     @[
-      InlineKeyboardButton(text: &"[BETA] Would you rather {asEmoji(not session.chat.pollsDisabled)}", callbackData: some &"polls_{chatId}"),
+      InlineKeyboardButton(text: &"[БЕТА] Что бы ты предпочел {asEmoji(not session.chat.pollsDisabled)}", callbackData: some &"polls_{chatId}"),
     ],
     @[
-      InlineKeyboardButton(text: "Session Bound:", callbackData: some"nothing"),
+      InlineKeyboardButton(text: "Привязка к сессии:", callbackData: some"nothing"),
     ],
     @[
-      InlineKeyboardButton(text: &"Emojipasta {asEmoji(session.emojipasta)}", callbackData: some &"emojipasta_{chatId}_{session.uuid}"),
-      InlineKeyboardButton(text: &"Owoify {asEmoji(session.owoify)}", callbackData: some &"owoify_{chatId}_{session.uuid}"),
+      InlineKeyboardButton(text: &"Эмоджипаста {asEmoji(session.emojipasta)}", callbackData: some &"emojipasta_{chatId}_{session.uuid}"),
+      InlineKeyboardButton(text: &"Овофай {asEmoji(session.owoify)}", callbackData: some &"owoify_{chatId}_{session.uuid}"),
     ],
     @[
-      InlineKeyboardButton(text: &"Case sensitive {asEmoji(session.caseSensitive)}", callbackData: some &"casesensivity_{chatId}_{session.uuid}"),
+      InlineKeyboardButton(text: &"Чувствительность к регистру {asEmoji(session.caseSensitive)}", callbackData: some &"casesensivity_{chatId}_{session.uuid}"),
     ],
     @[
-      InlineKeyboardButton(text: &"Always reply to replies {asEmoji(session.alwaysReply)}", callbackData: some &"alwaysreply_{chatId}_{session.uuid}"),
+      InlineKeyboardButton(text: &"Всегда отвечать на ответы {asEmoji(session.alwaysReply)}", callbackData: some &"alwaysreply_{chatId}_{session.uuid}"),
     ],
     @[
-      InlineKeyboardButton(text: &"Randomly quote messages {asEmoji(session.randomReplies)}", callbackData: some &"randomreplies_{chatId}_{session.uuid}"),
+      InlineKeyboardButton(text: &"Случайно цитировать сообщения {asEmoji(session.randomReplies)}", callbackData: some &"randomreplies_{chatId}_{session.uuid}"),
     ],
     @[
-      InlineKeyboardButton(text: &"Pause learning {asEmoji(session.learningPaused)}", callbackData: some &"pauselearning_{chatId}_{session.uuid}"),
+      InlineKeyboardButton(text: &"Приостановить обучение {asEmoji(session.learningPaused)}", callbackData: some &"pauselearning_{chatId}_{session.uuid}"),
     ],
   )
 
@@ -258,10 +250,10 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
   case command:
   of "start":
     const startMessage = (
-      "Hello, I learn from your messages and try to formulate my own sentences. Add me in a chat or send /enable to try me out here ᗜᴗᗜ" &
-      "\nSee /help for more information, and /privacy for my privacy policy."
+      "Привет, я учусь на ваших сообщениях и стараюсь формулировать свои собственные предложения. Добавьте меня в чат или отправьте /enable, чтобы попробовать меня здесь ᗜᴗᗜ" &
+      "\nСмотрите /help для получения дополнительной информации и /privacy для моей политики конфиденциальности."
     )
-    if message.chat.id != senderId: # /start only works in PMs
+    if message.chat.id != senderId: # /start работает только в ЛС
       if len(args) > 0:
         if args[0] == "enable":
           discard await bot.sendMessage(message.chat.id, startMessage, messageThreadId=threadId)
@@ -269,44 +261,28 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
           discard await bot.sendMessage(message.chat.id, startMessage, messageThreadId=threadId)
       return
 
-    if len(args) > 0:
-      # Private chat, /start with arguments
-      if args[0] == "consent":
-        discard await bot.sendMessage(message.chat.id,
-          CONSENT_TEXT,
-          replyMarkup = newInlineKeyboardMarkup(
-            @[
-              if dbUser.consented:
-                InlineKeyboardButton(text: "Revoke consent", callbackData: some "consent_revoke")
-              else:
-                InlineKeyboardButton(text: "Give consent", callbackData: some "consent_give")
-            ],
-          ),
-          messageThreadId=threadId)
-        return
-
     discard await bot.sendMessage(message.chat.id,
       startMessage,
-      replyMarkup = newInlineKeyboardMarkup(@[InlineKeyboardButton(text: "Add me :D", url: some &"https://t.me/{bot.username}?startgroup=enable")]),
+      replyMarkup = newInlineKeyboardMarkup(@[InlineKeyboardButton(text: "Добавьте меня :D", url: some &"https://t.me/{bot.username}?startgroup=enable")]),
       messageThreadId=threadId,
     )
   of "deleteme":
-    if message.chat.id != senderId: # /deleteme only works in PMs
+    if message.chat.id != senderId: # /deleteme работает только в ЛС
       return
 
     if len(args) > 0 and args[0] == "confirm":
       let count = conn.deleteAllMessagesFromUser(userId = senderId)
       discard await bot.sendMessage(message.chat.id,
-        &"Operation completed. Successfully deleted `{count}` messages from my database!" &
-        "\nNote: some messages might still be cached in the bot's memory in the compiled markov model, they will expire soon (at most in 4 hours, after the bot restarts for its backup procedure)" &
-        "\nIf this is an urgent matter, please contact my creator. You can find more information on the bot's bio.",
+        &"Операция завершена. Успешно удалено `{count}` сообщений из моей базы данных!" &
+        "\nПримечание: некоторые сообщения могут по-прежнему кэшироваться в памяти бота в скомпилированной модели маркова, они скоро истекут (максимум через 4 часа, после того как бот перезапустится для процедуры резервного копирования)" &
+        "\nЕсли это срочный вопрос, пожалуйста, свяжитесь с моим создателем. Вы можете найти дополнительную информацию в биографии бота.",
         parseMode = "markdown",
         messageThreadId=threadId)
       return
 
     let count = conn.getTotalUserMessagesCount(userId = senderId)
     discard await bot.sendMessage(message.chat.id,
-      &"This command will delete all your {count} messages from my database. Are you sure? Send `/deleteme confirm` to confirm.",
+      &"Эта команда удалит все ваши {count} сообщений из моей базы данных. Вы уверены? Отправьте `/deleteme confirm`, чтобы подтвердить.",
       parseMode = "markdown",
       messageThreadId=threadId,
     )
@@ -315,28 +291,12 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
       return
     discard await bot.sendMessage(message.chat.id, HELP_TEXT, parseMode = "markdown", messageThreadId=threadId)
   of "privacy":
-    if message.chat.id != senderId: # /privacy only works in PMs
+    if message.chat.id != senderId: # /privacy работает только в ЛС
       return
     discard await bot.sendMessage(message.chat.id,
       PRIVACY_TEXT,
       parseMode = "markdown",
       messageThreadId=threadId)
-  of "manageconsent":
-    if message.chat.id != senderId: # /manageconsent only works in PMs
-      return
-
-    discard await bot.sendMessage(message.chat.id,
-      CONSENT_TEXT,
-      replyMarkup = newInlineKeyboardMarkup(
-        @[
-          if dbUser.consented:
-            InlineKeyboardButton(text: "Revoke consent", callbackData: some "consent_revoke")
-          else:
-            InlineKeyboardButton(text: "Give consent", callbackData: some "consent_give")
-        ],
-      ),
-      messageThreadId=threadId)
-    return
   of "admin", "unadmin", "remadmin":
     if len(args) < 1:
       return
@@ -354,14 +314,14 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
         admins.excl(userId)
 
       discard await bot.sendMessage(message.chat.id,
-        if command == "admin": &"Successfully promoted [{userId}](tg://user?id={userId})"
-        else: &"Successfully demoted [{userId}](tg://user?id={userId})",
+        if command == "admin": &"Успешно повышен [{userId}](tg://user?id={userId})"
+        else: &"Успешно понижен [{userId}](tg://user?id={userId})",
         parseMode = "markdown",
         messageThreadId=threadId)
     except Exception as error:
       discard await bot.sendMessage(
         message.chat.id,
-        &"An error occurred: <code>{$typeof(error)}: {getCurrentExceptionMsg()}</code>",
+        &"Произошла ошибка: <code>{$typeof(error)}: {getCurrentExceptionMsg()}</code>",
         parseMode = "html",
         messageThreadId=threadId)
   of "botadmins":
@@ -372,7 +332,7 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
     let admins = conn.getBotAdmins()
 
     discard await bot.sendMessage(message.chat.id,
-      "*List of the bot admins:*\n" &
+      "*Список администраторов бота:*\n" &
       admins.mapIt("~ " & it.mention).join("\n"),
       parseMode = "markdown",
       messageThreadId=threadId,
@@ -382,19 +342,19 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
       discard await bot.sendMessage(message.chat.id, UNALLOWED, messageThreadId=threadId)
       return
 
-    var statsMessage = &"*Users*: `{conn.getCount(database.User)}`\n" &
-      &"*Chats*: `{conn.getCount(database.Chat)}`\n" &
-      &"*Messages*: `{conn.getCount(database.Message)}`\n" &
-      &"*Sessions*: `{conn.getCount(database.Session)}`\n" &
-      &"*Cached sessions*: `{len(chatSessions)}`\n" &
-      &"*Cached markovs*: `{len(markovs)}`\n" &
-      &"*Uptime*: `{toInt(epochTime() - uptime)}`s\n" &
-      &"*Database size*: `{humanBytes(getFileSize(DATA_FOLDER / MARKOV_DB))}`\n" &
-      &"*Memory usage (getOccupiedMem)*: `{humanBytes(getOccupiedMem())}`\n" &
-      &"*Memory usage (getTotalMem)*: `{humanBytes(getTotalMem())}`\n"
+    var statsMessage = &"*Пользователи*: `{conn.getCount(database.User)}`\n" &
+      &"*Чаты*: `{conn.getCount(database.Chat)}`\n" &
+      &"*Сообщения*: `{conn.getCount(database.Message)}`\n" &
+      &"*Сессии*: `{conn.getCount(database.Session)}`\n" &
+      &"*Кэшированные сессии*: `{len(chatSessions)}`\n" &
+      &"*Кэшированные марковы*: `{len(markovs)}`\n" &
+      &"*Время работы*: `{toInt(epochTime() - uptime)}`s\n" &
+      &"*Размер базы данных*: `{humanBytes(getFileSize(DATA_FOLDER / MARKOV_DB))}`\n" &
+      &"*Использование памяти (getOccupiedMem)*: `{humanBytes(getOccupiedMem())}`\n" &
+      &"*Использование памяти (getTotalMem)*: `{humanBytes(getTotalMem())}`\n"
 
     if command == "stats":
-      statsMessage &= &"\n\n*Memory usage*:\n{GC_getStatistics()}"
+      statsMessage &= &"\n\n*Использование памяти*:\n{GC_getStatistics()}"
     discard await bot.sendMessage(message.chat.id,
       statsMessage,
       parseMode = "markdown",
@@ -411,7 +371,7 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
     try:
       let peerId = parseBiggestInt(args[0])
       if peerId == senderId:
-        discard await bot.sendMessage(message.chat.id, "You are not allowed to ban yourself", messageThreadId=threadId)
+        discard await bot.sendMessage(message.chat.id, "Вы не можете забанить себя", messageThreadId=threadId)
         return
       elif peerId < 0:
         discard conn.setBanned(chatId = peerId, banned = (command == banCommand))
@@ -424,14 +384,14 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
         banned.excl(peerId)
 
       discard await bot.sendMessage(message.chat.id,
-        if command == banCommand: &"Successfully banned [{peerId}](tg://user?id={peerId})"
-        else: &"Successfully unbanned [{peerId}](tg://user?id={peerId})",
+        if command == banCommand: &"Успешно забанен [{peerId}](tg://user?id={peerId})"
+        else: &"Успешно разбанен [{peerId}](tg://user?id={peerId})",
         parseMode = "markdown",
         messageThreadId=threadId)
     except Exception as error:
       discard await bot.sendMessage(
         message.chat.id,
-        &"An error occurred: <code>{$typeof(error)}: {getCurrentExceptionMsg()}</code>",
+        &"Произошла ошибка: <code>{$typeof(error)}: {getCurrentExceptionMsg()}</code>",
         parseMode = "html",
         messageThreadId=threadId)
   of "enable", "disable":
@@ -440,22 +400,18 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
       return
 
     discard conn.setEnabled(message.chat.id, enabled = (command == "enable"))
-    if command == "enable":
-      var dbUser = conn.getOrInsert(database.User(userId: senderId))
-      dbUser.consented = true
-      conn.update(dbUser)
 
     if message.chat.kind.endswith("group"):
       discard await bot.sendMessage(message.chat.id,
-        if command == "enable": "Successfully enabled learning in this chat"
-        else: "Successfully disabled learning in this chat. If you want to enable it, send /enable.",
+        if command == "enable": "Обучение в этом чате успешно включено"
+        else: "Обучение в этом чате успешно отключено. Если вы хотите включить его, отправьте /enable.",
         messageThreadId=threadId,
       )
     else:
       discard await bot.sendMessage(message.chat.id,
-        if command == "enable": "Successfully enabled learning in this chat"
-        else: "Successfully disabled learning in this chat. If you want to enable it, send /enable." &
-          "\nNote: the bot will still learn in groups where it is enabled. If you don't want this, check out /manageconsent.",
+        if command == "enable": "Обучение в этом чате успешно включено"
+        else: "Обучение в этом чате успешно отключено. Если вы хотите включить его, отправьте /enable." &
+          "\nПримечание: бот все равно будет обучаться в группах, где это включено.",
         messageThreadId=threadId,
       )
   of "sessions":
@@ -466,12 +422,12 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
     discard conn.getDefaultSession(message.chat.id)
     let sessions = conn.getSessions(message.chat.id)
     discard await bot.sendMessage(message.chat.id,
-      "*Current sessions in this chat.* Send /delete to delete the current one.",
+      "*Текущие сессии в этом чате.* Отправьте /delete, чтобы удалить текущую.",
       replyMarkup = newInlineKeyboardMarkup(
         sessions.mapIt(
           @[InlineKeyboardButton(text: (if it.isDefault: &"🎩 {it.name}" else: it.name) & &" - {conn.getMessagesCount(it)}",
               callbackData: some &"set_{message.chat.id}_{it.uuid}")]
-        ) & @[InlineKeyboardButton(text: "Add session", callbackData: some &"addsession_{message.chat.id}")]
+        ) & @[InlineKeyboardButton(text: "Добавить сессию", callbackData: some &"addsession_{message.chat.id}")]
       ),
       parseMode = "markdown",
       messageThreadId=threadId,
@@ -484,19 +440,9 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
     var chat = conn.getOrInsert(database.Chat(chatId: message.chat.id))
     if len(args) == 0:
       discard await bot.sendMessage(message.chat.id,
-        "This command needs an argument. Example: `/percentage 40` (default: `30`)\n" &
-        &"Current percentage: `{chat.percentage}`%",
+        "Эта команда требует аргумент. Пример: `/percentage 40` (по умолчанию: `30`)\n" &
+        &"Текущий процент: `{chat.percentage}`%",
         parseMode = "markdown",
-        messageThreadId=threadId)
-      return
-
-    if not message.chat.kind.endswith("group") and not dbUser.consented:
-      discard await bot.sendMessage(
-        message.chat.id,
-        &"❕ You have not given consent to the bot's learning. Please [click here](https://t.me/{bot.username}?start=consent) to manage your data settings.",
-        parseMode = "markdown",
-        disableWebPagePreview = true,
-        replyToMessageId = message.messageId,
         messageThreadId=threadId)
       return
 
@@ -504,34 +450,24 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
       let percentage = parseInt(args[0].strip(chars = Whitespace + {'%'}))
 
       if percentage notin 0 .. 100:
-        discard await bot.sendMessage(message.chat.id, "Percentage must be a number between 0 and 100", messageThreadId=threadId)
+        discard await bot.sendMessage(message.chat.id, "Процент должен быть числом от 0 до 100", messageThreadId=threadId)
         return
 
       chat.percentage = percentage
       conn.update(chat)
 
       discard await bot.sendMessage(message.chat.id,
-        &"Percentage has been successfully updated to `{percentage}`%",
+        &"Процент успешно обновлен до `{percentage}`%",
         parseMode = "markdown",
         messageThreadId=threadId)
     except ValueError:
-      discard await bot.sendMessage(message.chat.id, "The value you inserted is not a number", messageThreadId=threadId)
+      discard await bot.sendMessage(message.chat.id, "Введенное значение не является числом", messageThreadId=threadId)
   of "markov", "quote":
     let enabled = conn.getOrInsert(database.Chat(chatId: message.chat.id)).enabled
     if not enabled:
       discard bot.sendMessage(
         message.chat.id,
-        "Learning is not enabled in this chat. Enable it with /enable (for groups: admins only)",
-        messageThreadId=threadId)
-      return
-
-    if not dbUser.consented:
-      discard bot.sendMessage(
-        message.chat.id,
-        &"❕ You have not given consent to the bot's learning. Please [click here](https://t.me/{bot.username}?start=consent) to manage your data settings.",
-        parseMode = "markdown",
-        replyToMessageId = message.messageId,
-        disableWebPagePreview = true,
+        "Обучение не включено в этом чате. Включите его с помощью /enable (только для администраторов групп)",
         messageThreadId=threadId)
       return
 
@@ -546,7 +482,7 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
       conn.refillMarkov(cachedSession)
 
     if len(markovs.get(message.chat.id).samples) == 0:
-      discard await bot.sendMessage(message.chat.id, "Not enough data to generate a sentence", messageThreadId=threadId)
+      discard await bot.sendMessage(message.chat.id, "Недостаточно данных для генерации предложения", messageThreadId=threadId)
       return
 
     var start = args.join(" ")
@@ -580,7 +516,7 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
 
       if command == "markov":
         discard await bot.sendMessage(message.chat.id, text, messageThreadId=threadId, replyToMessageId = replyToMessageId)
-      elif command == "quote" and not isFlood(message.chat.id, rate = 3, seconds = 20):
+      elif command == "quote" and not isFlood(message.chat.id, rate = 5, seconds = 10):
         {.cast(gcsafe).}:
           let quotePic = genQuote(
             text = text,
@@ -589,23 +525,13 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
         discard await bot.sendPhoto(message.chat.id, "file://" & quotePic, replyToMessageId = replyToMessageId)
         discard tryRemoveFile(quotePic)
     else:
-      discard await bot.sendMessage(message.chat.id, "Not enough data to generate a sentence", messageThreadId=threadId)
+      discard await bot.sendMessage(message.chat.id, "Недостаточно данных для генерации предложения", messageThreadId=threadId)
   of "wouldyourather":
     let enabled = conn.getOrInsert(database.Chat(chatId: message.chat.id)).enabled
     if not enabled:
       discard bot.sendMessage(
         message.chat.id,
-        "Learning is not enabled in this chat. Enable it with /enable (for groups: admins only)",
-        messageThreadId=threadId)
-      return
-
-    if not dbUser.consented:
-      discard bot.sendMessage(
-        message.chat.id,
-        &"❕ You have not given consent to the bot's learning. Please [click here](https://t.me/{bot.username}?start=consent) to manage your data settings.",
-        parseMode = "markdown",
-        replyToMessageId = message.messageId,
-        disableWebPagePreview = true,
+        "Обучение не включено в этом чате. Включите его с помощью /enable (только для администраторов групп)",
         messageThreadId=threadId)
       return
 
@@ -620,7 +546,7 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
       conn.refillMarkov(cachedSession)
 
     if len(markovs.get(message.chat.id).samples) < 10:
-      discard await bot.sendMessage(message.chat.id, "Not enough data to generate a would you rather poll", messageThreadId=threadId)
+      discard await bot.sendMessage(message.chat.id, "Недостаточно данных для генерации опроса 'что бы ты предпочел'", messageThreadId=threadId)
       return
 
     let generator = markovs.get(message.chat.id)
@@ -644,7 +570,7 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
     options = options.sortCandidates(length = 100)
 
     if len(options) < 2:
-      discard await bot.sendMessage(message.chat.id, "Not enough data to generate a would you rather poll", messageThreadId=threadId)
+      discard await bot.sendMessage(message.chat.id, "Недостаточно данных для генерации опроса 'что бы ты предпочел'", messageThreadId=threadId)
       return
 
     var isAnon: bool = false
@@ -653,10 +579,10 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
 
     discard await bot.sendPoll(
       chatId = message.chat.id,
-      question = &"{randomEmoji()} Would you rather...",
+      question = &"{randomEmoji()} Что бы вы предпочли...",
       options = options[0 ..< 2],
       messageThreadId = threadId,
-      isAnonymous = isAnon,  # currently not working idk why
+      isAnonymous = isAnon,  # в данный момент не работает, не знаю почему
     )
   #[ of "export":
     if senderId notin admins:
@@ -692,13 +618,13 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
     elif message.chat.id in deleting:
       discard await bot.sendMessage(
         message.chat.id,
-        "I am already deleting the messages from my database. Please hold on",
+        "Я уже удаляю сообщения из моей базы данных. Пожалуйста, подождите",
         messageThreadId=threadId)
     elif len(args) > 0 and args[0].toLower() == "confirm":
       try:
         deleting.incl(message.chat.id)
         let 
-          sentMessage = await bot.sendMessage(message.chat.id, "I am deleting data for this session...", messageThreadId=threadId)
+          sentMessage = await bot.sendMessage(message.chat.id, "Я удаляю данные для этой сессии...", messageThreadId=threadId)
           defaultSession = conn.getCachedSession(message.chat.id)
           deleted = conn.deleteMessages(session = defaultSession)
 
@@ -713,14 +639,14 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
           chatSessions[message.chat.id] = (unixTime(), conn.getCachedSession(chatId = message.chat.id))
 
         discard await bot.editMessageText(chatId = $message.chat.id, messageId = sentMessage.messageId,
-          text = &"Operation completed. Successfully deleted `{deleted}` messages from my database!",
+          text = &"Операция завершена. Успешно удалено `{deleted}` сообщений из моей базы данных!",
           parseMode = "markdown"
         )
         return
       except Exception as error:
         discard await bot.sendMessage(
           message.chat.id,
-          text = "An error occurred. Operation has been aborted." & CREATOR_STRING,
+          text = "Произошла ошибка. Операция была прервана." & CREATOR_STRING,
           replyToMessageId = message.messageId,
           messageThreadId=threadId)
         raise error
@@ -728,13 +654,12 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
         deleting.excl(message.chat.id)
     else:
       discard await bot.sendMessage(message.chat.id,
-        "If you are sure to delete data in this chat (of the current session), send `/delete confirm`. *NOTE*: This cannot be reverted",
+        "Если вы уверены, что хотите удалить данные в этом чате (текущей сессии), отправьте `/delete confirm`. *ПРИМЕЧАНИЕ*: Это нельзя отменить",
         parseMode = "markdown",
         messageThreadId=threadId)
   of "deletefrom", "delfrom", "delete_from", "del_from":
-    # deleteFromUserInChat
     if not message.chat.kind.endswith("group"):
-      discard await bot.sendMessage(message.chat.id, "This command works only in groups", messageThreadId=threadId)
+      discard await bot.sendMessage(message.chat.id, "Эта команда работает только в группах", messageThreadId=threadId)
       return
     if not isSenderAdmin:
       discard await bot.sendMessage(message.chat.id, UNALLOWED, messageThreadId=threadId)
@@ -751,13 +676,13 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
               message.replyToMessage.get().senderChat.get().id
             else:
               discard await bot.sendMessage(chatId = message.chat.id,
-                text = &"Operation failed. No user has been found. {CREATOR_STRING}",
+                text = &"Операция не удалась. Пользователь не найден. {CREATOR_STRING}",
                 messageThreadId=threadId,
               )
               return
         except ValueError:
           discard await bot.sendMessage(chatId = message.chat.id,
-            text = "Operation failed. Invalid integer (usernames are not allowed).",
+            text = "Операция не удалась. Неверное целое число (имена пользователей не допускаются).",
             messageThreadId=threadId,
           )
           return
@@ -766,7 +691,7 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
 
         if conn.getUserMessagesCount(defaultSession, userId) < 1:
           discard await bot.sendMessage(chatId = message.chat.id,
-            text = &"There are 0 messages belonging to the specified user in this chat session. ",
+            text = &"Указанный пользователь не имеет сообщений в этой чат-сессии. ",
             messageThreadId=threadId,
           )
           return
@@ -774,7 +699,7 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
         let 
           sentMessage = await bot.sendMessage(
             message.chat.id,
-            "I am deleting data from the specified user for this session...",
+            "Я удаляю данные от указанного пользователя для этой сессии...",
             messageThreadId=threadId)
           deleted = conn.deleteFromUserInChat(session = defaultSession, userId = userId)
 
@@ -782,20 +707,20 @@ proc handleCommand(bot: Telebot, update: Update, command: string, args: seq[stri
           markovs.del(message.chat.id)
 
         discard await bot.editMessageText(chatId = $message.chat.id, messageId = sentMessage.messageId,
-          text = &"Operation completed. Successfully deleted `{deleted}` messages sent by the specified user from my database!",
+          text = &"Операция завершена. Успешно удалено `{deleted}` сообщений, отправленных указанным пользователем из моей базы данных!",
           parseMode = "markdown"
         )
         return
       except Exception as error:
         discard await bot.sendMessage(
           message.chat.id,
-          text = "An error occurred (does the user exist?). Operation has been aborted." & CREATOR_STRING,
+          text = "Произошла ошибка (существует ли пользователь?). Операция была прервана." & CREATOR_STRING,
           replyToMessageId = message.messageId,
           messageThreadId=threadId)
         raise error
     else:
       discard await bot.sendMessage(message.chat.id,
-        "Send `/delfrom user_id` or use it in reply to someone. It will delete all messages a user sent from the bot's database. *NOTE*: This cannot be reverted",
+        "Отправьте `/delfrom user_id` или используйте это в ответ на сообщение. Это удалит все сообщения, отправленные пользователем из базы данных бота. *ПРИМЕЧАНИЕ*: Это нельзя отменить",
         parseMode = "markdown",
         messageThreadId=threadId)
 
@@ -830,7 +755,7 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
       case command: 
       of "set":
         if len(args) < 2:
-          discard await bot.answerCallbackQuery(callback.id, "Error: try again with a new message", showAlert = true)
+          discard await bot.answerCallbackQuery(callback.id, "Ошибка: попробуйте снова с новым сообщением", showAlert = true)
           break callbackBlock
 
         let
@@ -841,7 +766,7 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
 
         let default = conn.getCachedSession(chatId = chatId)
         if default.uuid == uuid:
-          discard await bot.answerCallbackQuery(callback.id, "This is already the default session for this chat", showAlert = true)
+          discard await bot.answerCallbackQuery(callback.id, "Это уже основная сессия для этого чата", showAlert = true)
           break callbackBlock
 
         let sessions = conn.setDefaultSession(chatId = chatId, uuid = uuid)
@@ -863,7 +788,7 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
           messageId = callback.message.get().messageId,
           sessions = sessions)
 
-        discard await bot.answerCallbackQuery(callback.id, "Done", showAlert = true)
+        discard await bot.answerCallbackQuery(callback.id, "Готово", showAlert = true)
       of "addsession":
         adminCheck()
         let chatId = parseBiggestInt(args[0])
@@ -877,13 +802,13 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
           let currentMax = if chat.premium: MAX_SESSIONS else: MAX_FREE_SESSIONS
           discard await bot.editMessageText(chatId = $callback.message.get().chat.id,
             messageId = callback.message.get().messageId,
-            text = &"You cannot add more than {currentMax} sessions per chat.",
+            text = &"Вы не можете добавить больше {currentMax} сессий на чат.",
           )
           break callbackBlock
 
         discard await bot.editMessageText(chatId = $callback.message.get().chat.id,
           messageId = callback.message.get().messageId,
-          text = "*Send me the name for the new session.* Send /cancel to cancel the current operation.",
+          text = "*Отправьте мне название для новой сессии.* Отправьте /cancel, чтобы отменить текущее действие.",
           parseMode = "markdown",
         )
 
@@ -896,7 +821,7 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
           if text.toLower().startswith("/cancel"):
             discard await bot.editMessageText(chatId = $callback.message.get().chat.id,
               messageId = callback.message.get().messageId,
-              text = "*Operation cancelled...*",
+              text = "*Операция отменена...*",
               parseMode = "markdown",
             )
             await sleepAsync(3 * 1000)
@@ -907,7 +832,7 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
           elif text.len > MAX_SESSION_NAME_LENGTH:
             discard await bot.editMessageText(chatId = $callback.message.get().chat.id,
               messageId = callback.message.get().messageId,
-              text = &"*Operation cancelled...* The session name is longer than `{MAX_SESSION_NAME_LENGTH}` characters",
+              text = &"*Операция отменена...* Имя сессии длиннее чем `{MAX_SESSION_NAME_LENGTH}` символов",
               parseMode = "markdown",
             )
             break callbackBlock
@@ -917,37 +842,18 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
             let currentMax = if chat.premium: MAX_SESSIONS else: MAX_FREE_SESSIONS
             discard await bot.editMessageText(chatId = $callback.message.get().chat.id,
               messageId = callback.message.get().messageId,
-              text = &"You cannot add more than {currentMax} sessions per chat.",
+              text = &"Вы не можете добавить больше {currentMax} сессий на чат.",
             )
           else:
             discard conn.addSession(Session(name: text, chat: conn.getChat(chatId)))
-            # chatSessions[chatId] = (unixTime(), conn.addSession(Session(name: text, chat: conn.getChat(chatId))))
             await bot.showSessions(chatId = callback.message.get().chat.id, messageId = callback.message.get().messageId)
         except TimeoutError:
           discard await bot.deleteMessage(chatId = $callback.message.get().chat.id,
             messageId = callback.message.get().messageId,
           )
       of "nothing":
-        discard await bot.answerCallbackQuery(callback.id, "This button serves no purpose! ☔️", showAlert = true)
+        discard await bot.answerCallbackQuery(callback.id, "Эта кнопка не имеет никакого значения! ☔️", showAlert = true)
         return
-      of "consent":
-        var dbUser = conn.getOrInsert(database.User(userId: userId))
-        dbUser.consented = args[0] == "give"
-        conn.update(dbUser)
-        discard await bot.answerCallbackQuery(callback.id, "Your consent settings have been successfully updated!", showAlert = true)
-        discard await bot.editMessageText(chatId = $callback.message.get().chat.id,
-          messageId = callback.message.get().messageId,
-          text = CONSENT_TEXT,
-          replyMarkup = newInlineKeyboardMarkup(
-            @[
-              if dbUser.consented:
-                InlineKeyboardButton(text: "Revoke consent", callbackData: some "consent_revoke")
-              else:
-                InlineKeyboardButton(text: "Give consent", callbackData: some "consent_give")
-            ],
-          ),
-          parseMode = "markdown",
-        )
       of "usernames":
         adminCheck()
         var session = conn.getCachedSession(parseBiggestInt(args[0]))
@@ -1009,7 +915,7 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
         conn.update(session.chat)
         editSettings()
         discard await bot.answerCallbackQuery(callback.id,
-          "Done! NOTE: This feature is highly experimental, and it works for english messages only!",
+          "Готово! ПРИМЕЧАНИЕ: Эта функция является высокоэкспериментальной и работает только для английских сообщений!",
           showAlert = true,
         )
         return
@@ -1026,20 +932,19 @@ proc handleCallbackQuery(bot: Telebot, update: Update) {.async, gcsafe.} =
         conn.update(session)
         editSettings()
 
-    # After any callback query
-    discard await bot.answerCallbackQuery(callback.id, "Done!")
+    # После любого запроса обратного вызова
+    discard await bot.answerCallbackQuery(callback.id, "Готово!")
   except IOError as err:
     if "message is not modified" in err.msg:
-      discard await bot.answerCallbackQuery(callback.id, "Done!")
+      discard await bot.answerCallbackQuery(callback.id, "Готово!")
       return
-    discard await bot.answerCallbackQuery(callback.id, "😔 Oh no, an ERROR occurred, try again. " & CREATOR_STRING, showAlert = true)
+    discard await bot.answerCallbackQuery(callback.id, "😔 О нет, произошла ОШИБКА, попробуйте еще раз. " & CREATOR_STRING, showAlert = true)
     raise err
 
 proc updateHandler(bot: Telebot, update: Update): Future[bool] {.async, gcsafe.} =
   if await listenUpdater(bot, update):
     return
   if not (update.message.isSome or update.callbackQuery.isSome):
-      # return true will make bot stop process other callbacks
       return true
 
   try:
@@ -1090,24 +995,14 @@ proc updateHandler(bot: Telebot, update: Update): Future[bool] {.async, gcsafe.}
 
       if not cachedSession.isMessageOk(text):
         return
-      elif not markovs.hasKeyOrPut(chatId, (unixTime(), newMarkov((if user.consented and not cachedSession.learningPaused: @[text] else: @[]), asLower = not cachedSession.caseSensitive))):
+
+      # Всегда учитесь на сообщениях
+      if not markovs.hasKeyOrPut(chatId, (unixTime(), newMarkov(@[]))):
         conn.refillMarkov(cachedSession)
       else:
-        if user.consented and not cachedSession.learningPaused:
-          markovs.get(chatId).addSample(text, asLower = not cachedSession.caseSensitive)
+        markovs.get(chatId).addSample(text, asLower = not cachedSession.caseSensitive)
 
-      if user.consented and not cachedSession.learningPaused:
-        conn.addMessage(database.Message(text: text, sender: user, session: conn.getCachedSession(chat.chatId)))
-
-      if not response.chat.kind.endswith("group") and not user.consented:
-        discard await bot.sendMessage(
-          chatId,
-          &"❕ You have not given consent to the bot's learning. Please [click here](https://t.me/{bot.username}?start=consent) to manage your data settings.",
-          parseMode = "markdown",
-          replyToMessageId = response.messageId,
-          disableWebPagePreview = true,
-          messageThreadId=threadId)
-        return
+      conn.addMessage(database.Message(text: text, sender: user, session: conn.getCachedSession(chat.chatId)))
 
       var percentage = chat.percentage
       let replyMessage = update.message.get().replyToMessage
@@ -1118,7 +1013,7 @@ proc updateHandler(bot: Telebot, update: Update): Future[bool] {.async, gcsafe.}
         percentage *= 2
 
       if (rand(1 .. 100) <= percentage or (percentage > 0 and repliedToMarkinim and cachedSession.alwaysReply)) and not isFlood(chatId, rate = 10, seconds = 30):
-        # Max 10 messages per chat per 30 seconds
+        # Макс 10 сообщений на чат за 30 секунд
 
         {.cast(gcsafe).}:
           let generated = markovs.get(chatId).generate()
@@ -1132,7 +1027,7 @@ proc updateHandler(bot: Telebot, update: Update): Future[bool] {.async, gcsafe.}
               text = emojify(text)
 
           if not cachedSession.chat.quotesDisabled and rand(0 .. 30) == 20:
-            # Randomly send a quote
+            # Случайно отправить цитату
             {.cast(gcsafe).}:
               let quotePic = genQuote(
                 text = text,
@@ -1155,9 +1050,8 @@ proc updateHandler(bot: Telebot, update: Update): Future[bool] {.async, gcsafe.}
     echoError &"[ERROR] | " & $error.name & ": " & error.msg & ";"
   except Exception as error:
     echoError &"[ERROR] | " & $error.name & ": " & error.msg & ";"
-    # raise error
   except:
-    echoError "[ERROR] Fatal: uncaught error"
+    echoError "[ERROR] Фатальная ошибка: не пойманное исключение"
 
 
 proc main {.async.} =
@@ -1170,7 +1064,7 @@ proc main {.async.} =
     loggingEnabled = config.getSectionValue("config", "logging", getEnv("LOGGING")).strip() == "1"
 
   if botToken == "":
-    echoError "[ERROR]: Token not provided. Check secret.ini or environment variables"
+    echoError "[ERROR]: Токен не предоставлен. Проверьте secret.ini или переменные окружения"
     quit(1)
 
   keepLast = parseInt(config.getSectionValue("config", "keeplast", getEnv("KEEP_LAST", $keepLast)))
@@ -1191,12 +1085,12 @@ proc main {.async.} =
 
   let bot = newTeleBot(botToken)
   bot.username = (await bot.getMe()).username.get().strip()
-  echoError "Running... Bot username: ", bot.username
+  echoError "Работа... Имя бота: ", bot.username
 
   if loggingEnabled:
     addHandler(L)
   else:
-    echoError "Warning: logging is not enabled. Enable it with [LOGGING=1 in .env] or [logging = 1 in secret.ini] if needed"
+    echoError "Предупреждение: ведение журнала не включено. Включите его с помощью [LOGGING=1 in .env] или [logging = 1 in secret.ini], если это необходимо"
 
   asyncCheck cleanerWorker()
   bot.onUpdate(updateHandler)
@@ -1206,20 +1100,20 @@ proc main {.async.} =
     try:
       await bot.pollAsync(timeout = 100, clean = true)
     except:  #  Exception, Defect, IndexDefect
-      echoError "Fatal error occurred. Restarting the bot..."
+      echoError "Произошла фатальная ошибка. Перезапуск бота..."
       echoError "getCurrentExceptionMsg(): ", getCurrentExceptionMsg()
-      await sleepAsync(5000) # sleep 5 seconds and retry again
+      await sleepAsync(5000) # спать 5 секунд и повторить снова
 
 
 when isMainModule:
   when defined(windows):
-    # This easter egg deserves to be left here
+    # Этот пасхальный яйцо следует оставить здесь
     if CompileDate != now().format("yyyy-MM-dd"):
-      echoError "You can't run this on windows after a day"
+      echoError "Вы не можете запустить это на windows после дня"
       quit(1)
 
   try:
     waitFor main()
   except KeyboardInterrupt:
-    echo "\nQuitting...\nProgram has run for ", toInt(epochTime() - uptime), " seconds."
+    echo "\nВыход...\nПрограмма работала ", toInt(epochTime() - uptime), " секунд."
     quit(0)
