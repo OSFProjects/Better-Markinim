@@ -1,21 +1,20 @@
-☔️ Hello, I am Markinim, and I'm a stupid fumo bot! I can learn from your messages and generate my own sentences ᗜᴗᗜ
+☔️ Здравствуйте, меня зовут Маркиним, и я умственно отсталый фумо-бот! Я могу учиться на ваших сообщениях и генерировать свои собственные предложения ᗜᴗᗜ
 
-⨭ *Commands*
-  ➼ /help - Much recursion, much wow
-  ➼ /enable - Enable learning in a chat
-  ➼ /disable - Disable learning in a chat
-  ➼ /markov - Generate a sentence from learned data, if possible
-  ➼ /quote - Generate an image quote (3 pics every 20 seconds)
-  ➼ /percentage - Tune the bot's answers ratio (0-100%)
-  ➼ /settings - Edit the chat settings
-  ➼ /sessions - Show the current chat sessions
-  ➼ /delete - Delete the current session and its messages
-  ➼ /deletefrom (groups only, in reply to someone) - Delete all the messages a user sent in a group *from my database* (to filter spammers)
+⨭ *Команды*
+  ➼ /help - много рекурсии, много вау
+  ➼ /enable - Включить обучение в чате
+  ➼ /disable - Отключить обучение в чате
+  ➼ /markov - Генерировать предложение из изученных данных, если это возможно
+  ➼ /quote - генерировать цитаты из изображений (5 картинок каждые 10 секунд)
+  ➼ /percentage - настройка соотношения ответов бота (0-100%)
+  ➼ /settings - Редактирование настроек чата
+  ➼ /sessions - Показать текущие сессии чата
+  ➼ /delete - Удалить текущую сессию и ее сообщения
+  ➼ /deletefrom (только для групп, в ответе кому-либо) - Удалить все сообщения, отправленные пользователем в группе, *из моей базы данных* (для фильтрации спамеров)
 
-⨭ *Data Safety*
-  ➼ /deleteme - Delete all your data from my database (works in private chats only)
-  ➼ /privacy - Read the privacy policy
-  ➼ /manageconsent - Manage your data consent
+⨭ *Безопасность данных*
+  ➼ /deleteme - Удалить все ваши данные из моей базы (работает только в приватных чатах)
+  ➼ /privacy - Прочитать политику конфиденциальности
 
-*NOTE*: experimental features marked with a *beta* label.
-🌺 If you encounter any issue, please contact my owner, more information and FAQ on @Markinim :D
+*ПРИМЕЧАНИЕ*: экспериментальные функции отмечены знаком *beta*.
+🌺 Если у вас возникнут какие-либо проблемы, пожалуйста, свяжитесь с моим владельцем, @Sayque :D
