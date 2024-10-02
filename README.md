@@ -23,8 +23,8 @@ logging = 1
 Вы также можете добавить параметр `keeplast = 1500` в конфигурацию, чтобы избежать перегрузки оперативной памяти, обрабатывая максимум `keeplast` сообщений за сессию (по умолчанию: `1500`).
 
 ```shell
-$ nim c -o:markinim src/markinim.nim
-$ ./markinim
+$ nim c -o:bettermarkinim src/bettermarkinim.nim
+$ ./bettermarkinim
 ```
 
 ## Развертывание (с Docker)
@@ -54,7 +54,7 @@ docker run -itd -v="${pwd}/data":/code/data:z --env-file=.env --restart=unless-s
   - Добавьте строку:
 
   ```shell
-  0 */4 * * * /path/to/markinim/tools/backup.sh
+  0 */4 * * * /path/to/bettermarkinim/tools/backup.sh
   ```
 
   - Сохраните и выйдите.
