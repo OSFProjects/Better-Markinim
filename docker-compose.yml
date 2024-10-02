@@ -1,7 +1,7 @@
 services:
-  markinimbot:
+  bettermarkinimbot:
     build: .
-    container_name: markinimbot
+    container_name: bettermarkinimbot
     restart: unless-stopped
     volumes:
       - "./data:/code/data:z"
