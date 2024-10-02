@@ -40,7 +40,7 @@ $ ./bettermarkinim
 - Запустите бота с помощью команды:
 
 ```shell
-docker run -itd -v="${pwd}/data":/code/data:z --env-file=.env --restart=unless-stopped --name=markinimbot markinim
+docker run -itd -v="${pwd}/data":/code/data:z --env-file=.env --restart=unless-stopped --name=bettermarkinimbot bettermarkinim
 ```
 
 ## Резервные копии
